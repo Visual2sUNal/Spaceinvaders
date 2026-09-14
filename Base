@@ -1,0 +1,479 @@
+let nave;
+let balas = [];
+let aliens = [];
+let explosiones = [];
+
+let direccionAliens = 1; // 1 = derecha, -1 = izquierda
+let velocidadAliens = 2;
+
+function setup() {
+  createCanvas(600, 400);
+
+  nave = new Nave();
+
+  // Crear la cuadrícula de aliens
+  // 4 filas x 7 columnas
+  for (let fila = 0; fila < 4; fila++) {
+    for (let col = 0; col < 7; col++) {
+
+      // Aliens centrados
+      let x = width / 2 - 120 + col * 40;
+      let y = 20 + fila * 40;
+
+      aliens.push(new Alien(x, y, fila));
+    }
+  }
+}
+
+function draw() {
+  background(0);
+
+  nave.mostrar();
+  nave.mover();
+
+  // Disparo automatico
+  if (frameCount % 50 === 0) {
+    balas.push(new Bala(nave.x, nave.y - 25));
+  }
+
+  // Balas
+  for (let i = balas.length - 1; i >= 0; i--) {
+
+    let bala = balas[i];
+
+    bala.mostrar();
+    bala.mover();
+
+    // Eliminar bala cuando salga de la pantalla
+    if (bala.y < 0) {
+      balas.splice(i, 1);
+      continue;
+    }
+
+    // Colision Bala
+    for (let j = aliens.length - 1; j >= 0; j--) {
+
+      let alien = aliens[j];
+
+      // Comprobar si la bala toca al alien
+      if (
+        bala.x > alien.x - alien.r &&
+        bala.x < alien.x + alien.r &&
+        bala.y > alien.y - alien.r &&
+        bala.y < alien.y + alien.r
+      ) {
+
+        // Crear explosión
+        explosiones.push(
+          new Explosion(alien.x, alien.y)
+        );
+
+        // Eliminar bala y alien
+        aliens.splice(j, 1);
+        balas.splice(i, 1);
+        break;
+      }
+    }
+  }
+
+  // Aliens
+  let tocarBorde = false;
+
+  for (let alien of aliens) {
+
+    alien.mostrar();
+
+    alien.mover(
+      direccionAliens * velocidadAliens
+    );
+
+    // Comprobar si toca los bordes
+    if (
+      alien.x > width - 15 ||
+      alien.x < 15
+    ) {
+      tocarBorde = true;
+    }
+  }
+
+
+  // Si algún alien toca el borde todos cambian de dirección
+  if (tocarBorde) {
+
+    direccionAliens *= -1;
+
+    
+    for (let alien of aliens) {
+      alien.bajar();
+    }
+    
+  }
+
+  // Explosion
+  for (let i = explosiones.length - 1; i >= 0; i--) {
+
+    let explosion = explosiones[i];
+
+    explosion.mostrar();
+    explosion.actualizar();
+
+    // Eliminar explosión cuando termine
+    if (explosion.terminada()) {
+      explosiones.splice(i, 1);
+    }
+  }
+}
+
+// Alien
+class Alien {
+
+  constructor(x, y, fila) {
+
+    this.x = x;
+    this.y = y;
+    this.r = 12;
+    this.tipo = fila;
+    this.frame = 0;
+  }
+
+  mostrar() {
+
+    push();
+
+    rectMode(CENTER);
+    noStroke();
+
+    this.frame = floor(frameCount / 15) % 2;
+
+    if (this.tipo === 0) {
+      this.alienRojo();
+    }
+
+    else if (this.tipo === 1) {
+      this.alienVerde();
+    }
+
+    else {
+      this.alienAzul();
+    }
+
+    pop();
+  }
+
+  alienRojo() {
+
+    let pixel = 3;
+
+    fill(255, 0, 0);
+
+    // Cabeza
+    rect(this.x - 9, this.y - 6, pixel * 2, pixel * 2);
+    rect(this.x - 3, this.y - 9, pixel * 2, pixel * 2);
+    rect(this.x + 3, this.y - 6, pixel * 2, pixel * 2);
+
+    // Cuerpo
+    rect(this.x - 9, this.y, pixel * 2, pixel * 2);
+    rect(this.x - 3, this.y, pixel * 2, pixel * 2);
+    rect(this.x + 3, this.y, pixel * 2, pixel * 2);
+
+    // Alas
+    rect(this.x - 12, this.y + 3, pixel * 2, pixel * 2);
+    rect(this.x + 12, this.y + 3, pixel * 2, pixel * 2);
+
+    // Patas
+    if (this.frame === 0) {
+
+      rect(this.x - 9, this.y + 9, pixel * 2, pixel * 2);
+      rect(this.x + 9, this.y + 9, pixel * 2, pixel * 2);
+
+    } else {
+
+      rect(this.x - 12, this.y + 9, pixel * 2, pixel * 2);
+      rect(this.x + 12, this.y + 9, pixel * 2, pixel * 2);
+    }
+  }
+
+  alienVerde() {
+
+    let pixel = 3;
+
+    fill(0, 255, 0);
+
+    // Antenas
+    rect(this.x - 9, this.y - 9, pixel * 2, pixel * 2);
+    rect(this.x + 9, this.y - 9, pixel * 2, pixel * 2);
+
+    // Cabeza
+    rect(this.x - 6, this.y - 6, pixel * 2, pixel * 2);
+    rect(this.x, this.y - 9, pixel * 2, pixel * 2);
+    rect(this.x + 6, this.y - 6, pixel * 2, pixel * 2);
+
+    // Cuerpo
+    rect(this.x - 9, this.y, pixel * 2, pixel * 2);
+    rect(this.x - 3, this.y, pixel * 2, pixel * 2);
+    rect(this.x + 3, this.y, pixel * 2, pixel * 2);
+    rect(this.x + 9, this.y, pixel * 2, pixel * 2);
+
+    // Brazos
+    rect(this.x - 12, this.y + 3, pixel * 2, pixel * 2);
+    rect(this.x + 12, this.y + 3, pixel * 2, pixel * 2);
+
+    // Patas animadas
+    if (this.frame === 0) {
+
+      rect(this.x - 6, this.y + 9, pixel * 2, pixel * 2);
+      rect(this.x + 6, this.y + 9, pixel * 2, pixel * 2);
+
+    } else {
+
+      rect(this.x - 9, this.y + 9, pixel * 2, pixel * 2);
+      rect(this.x + 9, this.y + 9, pixel * 2, pixel * 2);
+    }
+  }
+
+  alienAzul() {
+
+    let pixel = 3;
+
+    fill(50, 50, 255);
+
+    // Parte superior
+    rect(this.x - 9, this.y - 6, pixel * 2, pixel * 2);
+    rect(this.x - 3, this.y - 9, pixel * 2, pixel * 2);
+    rect(this.x + 3, this.y - 9, pixel * 2, pixel * 2);
+    rect(this.x + 9, this.y - 6, pixel * 2, pixel * 2);
+
+    // Cuerpo
+    rect(this.x - 12, this.y, pixel * 2, pixel * 2);
+    rect(this.x - 6, this.y, pixel * 2, pixel * 2);
+    rect(this.x, this.y, pixel * 2, pixel * 2);
+    rect(this.x + 6, this.y, pixel * 2, pixel * 2);
+    rect(this.x + 12, this.y, pixel * 2, pixel * 2);
+
+    // Parte inferior
+    rect(this.x - 9, this.y + 6, pixel * 2, pixel * 2);
+    rect(this.x - 3, this.y + 9, pixel * 2, pixel * 2);
+    rect(this.x + 3, this.y + 9, pixel * 2, pixel * 2);
+    rect(this.x + 9, this.y + 6, pixel * 2, pixel * 2);
+
+    // Patas
+    if (this.frame === 0) {
+
+      rect(this.x - 9, this.y + 12, pixel * 2, pixel * 2);
+      rect(this.x + 9, this.y + 12, pixel * 2, pixel * 2);
+
+    } else {
+
+      rect(this.x - 12, this.y + 12, pixel * 2, pixel * 2);
+      rect(this.x + 12, this.y + 12, pixel * 2, pixel * 2);
+    }
+  }
+
+  mover(vel) {
+
+    this.x += vel;
+  }
+
+  bajar() {
+
+    this.y += 5;
+  }
+}
+
+
+// Nave
+class Nave {
+
+  constructor() {
+
+    this.x = width / 2;
+    this.y = height - 30;
+
+    this.velocidad = 5;
+  }
+
+
+  mostrar() {
+
+    // Cuerpo
+    fill(0, 255, 0);
+
+    triangle(
+      this.x,
+      this.y - 20,
+
+      this.x - 25,
+      this.y + 15,
+
+      this.x + 25,
+      this.y + 15
+    );
+
+    // Cabina
+    fill(0, 200, 255);
+
+    ellipse(
+      this.x,
+      this.y - 5,
+      15,
+      15
+    );
+
+    // Alas
+    fill(0, 180, 0);
+
+    triangle(
+      this.x - 10,
+      this.y + 5,
+
+      this.x - 30,
+      this.y + 15,
+
+      this.x - 10,
+      this.y + 15
+    );
+
+    triangle(
+      this.x + 10,
+      this.y + 5,
+
+      this.x + 30,
+      this.y + 15,
+
+      this.x + 10,
+      this.y + 15
+    );
+
+    // Fuego
+    fill(255, 150, 0);
+
+    triangle(
+      this.x - 7,
+      this.y + 15,
+
+      this.x + 7,
+      this.y + 15,
+
+      this.x,
+      this.y + 30
+    );
+  }
+
+
+  mover() {
+    if (
+      keyIsDown(LEFT_ARROW) && this.x > 30
+    ) {
+      this.x -= this.velocidad;
+    }
+
+    if (
+      keyIsDown(RIGHT_ARROW) && this.x < width - 30
+    ) {
+      this.x += this.velocidad;
+    }
+  }
+}
+
+
+// Bala
+
+class Bala {
+
+  constructor(x, y) {
+
+    this.x = x;
+    this.y = y;
+
+    this.velocidad = 6;
+  }
+
+
+  mostrar() {
+
+    fill(255, 255, 255);
+
+    rectMode(CENTER);
+
+    rect(
+      this.x,
+      this.y,
+      5,
+      10
+    );
+  }
+
+
+  mover() {
+    this.y -= this.velocidad;
+  }
+}
+
+
+class Explosion {
+
+  constructor(x, y) {
+
+    this.x = x;
+    this.y = y;
+
+    this.vida = 20;
+
+    // Crear partículas
+    this.particulas = [];
+
+    for (let i = 0; i < 20; i++) {
+
+      this.particulas.push({
+
+        x: this.x,
+        y: this.y,
+
+        vx: random(-3, 3),
+        vy: random(-3, 3),
+
+        tamano: random(3, 7)
+      });
+    }
+  }
+
+
+  mostrar() {
+
+    for (let particula of this.particulas) {
+
+      fill(
+        255,
+        random(80, 180),
+        0
+      );
+
+      ellipse(
+        particula.x,
+        particula.y,
+        particula.tamano
+      );
+    }
+  }
+
+
+  actualizar() {
+
+    // Mover partículas
+    for (let particula of this.particulas) {
+
+      particula.x += particula.vx;
+      particula.y += particula.vy;
+    }
+
+    // Reducir vida
+    this.vida--;
+  }
+
+
+  terminada() {
+
+    return this.vida <= 0;
+  }
+}
+
