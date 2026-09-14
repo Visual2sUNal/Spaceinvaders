@@ -38,7 +38,6 @@ function draw() {
 
   // Balas
   for (let i = balas.length - 1; i >= 0; i--) {
-
     let bala = balas[i];
 
     bala.mostrar();
@@ -52,7 +51,6 @@ function draw() {
 
     // Colision Bala
     for (let j = aliens.length - 1; j >= 0; j--) {
-
       let alien = aliens[j];
 
       // Comprobar si la bala toca al alien
@@ -78,11 +76,8 @@ function draw() {
 
   // Aliens
   let tocarBorde = false;
-
   for (let alien of aliens) {
-
     alien.mostrar();
-
     alien.mover(
       direccionAliens * velocidadAliens
     );
@@ -96,22 +91,17 @@ function draw() {
     }
   }
 
-
   // Si algún alien toca el borde todos cambian de dirección
   if (tocarBorde) {
-
     direccionAliens *= -1;
-
     
     for (let alien of aliens) {
       alien.bajar();
     }
-    
   }
 
   // Explosion
   for (let i = explosiones.length - 1; i >= 0; i--) {
-
     let explosion = explosiones[i];
 
     explosion.mostrar();
@@ -126,9 +116,7 @@ function draw() {
 
 // Alien
 class Alien {
-
   constructor(x, y, fila) {
-
     this.x = x;
     this.y = y;
     this.r = 12;
@@ -139,31 +127,24 @@ class Alien {
   mostrar() {
 
     push();
-
     rectMode(CENTER);
     noStroke();
-
     this.frame = floor(frameCount / 15) % 2;
 
     if (this.tipo === 0) {
       this.alienRojo();
     }
-
     else if (this.tipo === 1) {
       this.alienVerde();
     }
-
     else {
       this.alienAzul();
     }
-
     pop();
   }
 
   alienRojo() {
-
     let pixel = 3;
-
     fill(255, 0, 0);
 
     // Cabeza
@@ -182,21 +163,16 @@ class Alien {
 
     // Patas
     if (this.frame === 0) {
-
       rect(this.x - 9, this.y + 9, pixel * 2, pixel * 2);
       rect(this.x + 9, this.y + 9, pixel * 2, pixel * 2);
-
     } else {
-
       rect(this.x - 12, this.y + 9, pixel * 2, pixel * 2);
       rect(this.x + 12, this.y + 9, pixel * 2, pixel * 2);
     }
   }
 
   alienVerde() {
-
     let pixel = 3;
-
     fill(0, 255, 0);
 
     // Antenas
@@ -220,21 +196,16 @@ class Alien {
 
     // Patas animadas
     if (this.frame === 0) {
-
       rect(this.x - 6, this.y + 9, pixel * 2, pixel * 2);
       rect(this.x + 6, this.y + 9, pixel * 2, pixel * 2);
-
     } else {
-
       rect(this.x - 9, this.y + 9, pixel * 2, pixel * 2);
       rect(this.x + 9, this.y + 9, pixel * 2, pixel * 2);
     }
   }
 
   alienAzul() {
-
     let pixel = 3;
-
     fill(50, 50, 255);
 
     // Parte superior
@@ -258,40 +229,30 @@ class Alien {
 
     // Patas
     if (this.frame === 0) {
-
       rect(this.x - 9, this.y + 12, pixel * 2, pixel * 2);
       rect(this.x + 9, this.y + 12, pixel * 2, pixel * 2);
-
     } else {
-
       rect(this.x - 12, this.y + 12, pixel * 2, pixel * 2);
       rect(this.x + 12, this.y + 12, pixel * 2, pixel * 2);
     }
   }
 
   mover(vel) {
-
     this.x += vel;
   }
 
   bajar() {
-
     this.y += 5;
   }
 }
 
-
 // Nave
 class Nave {
-
   constructor() {
-
     this.x = width / 2;
     this.y = height - 30;
-
     this.velocidad = 5;
   }
-
 
   mostrar() {
 
@@ -379,22 +340,15 @@ class Nave {
 // Bala
 
 class Bala {
-
   constructor(x, y) {
-
     this.x = x;
     this.y = y;
-
     this.velocidad = 6;
   }
 
-
   mostrar() {
-
     fill(255, 255, 255);
-
     rectMode(CENTER);
-
     rect(
       this.x,
       this.y,
@@ -403,7 +357,6 @@ class Bala {
     );
   }
 
-
   mover() {
     this.y -= this.velocidad;
   }
@@ -411,12 +364,9 @@ class Bala {
 
 
 class Explosion {
-
   constructor(x, y) {
-
     this.x = x;
     this.y = y;
-
     this.vida = 20;
 
     // Crear partículas
@@ -425,7 +375,6 @@ class Explosion {
     for (let i = 0; i < 20; i++) {
 
       this.particulas.push({
-
         x: this.x,
         y: this.y,
 
@@ -437,16 +386,10 @@ class Explosion {
     }
   }
 
-
   mostrar() {
 
     for (let particula of this.particulas) {
-
-      fill(
-        255,
-        random(80, 180),
-        0
-      );
+      fill(255, random(80, 180), 0);
 
       ellipse(
         particula.x,
@@ -455,7 +398,6 @@ class Explosion {
       );
     }
   }
-
 
   actualizar() {
 
@@ -476,4 +418,3 @@ class Explosion {
     return this.vida <= 0;
   }
 }
-
