@@ -10,6 +10,10 @@ let velocidadAliens = 2;
 let puntuacion = 0;
 let vidas = 3;
 let estado = "jugando";
+let jefe = null;
+let aliensEliminados = [];
+let probReaparicionAliens = 0.02;
+let ultimoSpawnAlienBoss = 0;
 
 function setup() {
   createCanvas(600, 400);
@@ -22,6 +26,8 @@ function iniciarNivel() {
   balasAlien = [];
   aliens = [];
   explosiones = [];
+  jefe = null;
+  aliensEliminados = [];
   direccionAliens = 1;
   velocidadAliens = 2;
 
@@ -32,6 +38,80 @@ function iniciarNivel() {
       aliens.push(new Alien(x, y, fila));
     }
   }
+}
+
+function activarJefe() {
+  if (jefe || aliens.length > 0) return;
+  jefe = new Jefe();
+  ultimoSpawnAlienBoss = frameCount;
+  estado = "jefe";
+}
+
+function manejarReaparicionAliens() {
+  if (estado !== "jugando" || !jefe || aliensEliminados.length === 0) return;
+
+  if (random() < probReaparicionAliens && aliens.length < 5) {
+    let alienMuerto = random(aliensEliminados);
+    aliens.push(new Alien(random(40, width - 40), -20, alienMuerto.tipo));
+  }
+}
+
+function spawnearAliensDelJefe() {
+  if (estado !== "jefe" || aliens.length >= 8) return;
+  if (frameCount - ultimoSpawnAlienBoss < 600) return;
+
+  ultimoSpawnAlienBoss = frameCount;
+
+  for (let i = 0; i < 1; i++) {
+    if (aliens.length >= 8) break;
+
+    let posicion = encontrarPosicionAlienPequeno();
+    if (!posicion) break;
+
+    aliens.push(new AlienPequeno(posicion.x, posicion.y));
+  }
+}
+
+function encontrarPosicionAlienPequeno() {
+  for (let intento = 0; intento < 40; intento++) {
+    let candidato = {
+      x: random(50, width - 50),
+      y: random(80, 160),
+    };
+
+    if (abs(candidato.x - nave.x) < 140) continue;
+
+    let seSuperpone = aliens.some((alien) => {
+      return dist(candidato.x, candidato.y, alien.x, alien.y) < 36;
+    });
+
+    if (!seSuperpone) return candidato;
+  }
+
+  return null;
+}
+
+function dibujarBarraVidaJefe() {
+  if (!jefe) return;
+
+  push();
+  rectMode(CORNER);
+  let anchoBarra = 220;
+  let x = width / 2 - anchoBarra / 2;
+  let y = 28;
+
+  fill(40);
+  rect(x, y, anchoBarra, 16);
+
+  let vidaRelativa = constrain(jefe.vida / jefe.vidaMax, 0, 1);
+  fill(255, 0, 80);
+  rect(x, y, anchoBarra * vidaRelativa, 16);
+
+  fill(255);
+  textAlign(CENTER, CENTER);
+  textSize(12);
+  text("Jefe: " + jefe.vida + " / " + jefe.vidaMax, width / 2, y - 8);
+  pop();
 }
 
 function reiniciar() {
@@ -46,6 +126,8 @@ function draw() {
 
   if (estado === "jugando") {
     dibujarJuego();
+  } else if (estado === "jefe") {
+    dibujarJefe();
   } else if (estado === "gameOver") {
     dibujarGameOver();
   } else if (estado === "victoria") {
@@ -53,6 +135,7 @@ function draw() {
   }
 
   dibujarHUD();
+  dibujarBarraVidaJefe();
   dibujarExplosiones();
 }
 
@@ -74,7 +157,55 @@ function dibujarJuego() {
   moverAliens();
   disparoAliens();
 
-  if (aliens.length === 0) {
+  if (aliens.length === 0 && !jefe) {
+    activarJefe();
+  }
+}
+
+function dibujarJefe() {
+  if (!jefe) {
+    estado = "victoria";
+    return;
+  }
+
+  jefe.mostrar();
+
+  if (nave.invencible && frameCount % 6 < 3) {
+    // parpadeo
+  } else {
+    nave.mostrar();
+  }
+
+  nave.mover();
+  nave.actualizarInvencibilidad();
+
+  if (frameCount % 50 === 0) {
+    balas.push(new Bala(nave.x, nave.y - 25));
+  }
+
+  jefe.mover();
+  jefe.disparar();
+  spawnearAliensDelJefe();
+  actualizarBalasJugador();
+  actualizarBalasAlien();
+
+  for (let alien of aliens) {
+    alien.mostrar();
+    alien.mover(direccionAliens * 0.7);
+
+    if (alien.x > width - 15 || alien.x < 15) {
+      direccionAliens *= -1;
+    }
+
+    if (alien.y > height - 20) {
+      estado = "gameOver";
+    }
+  }
+
+  if (jefe.vida <= 0) {
+    puntuacion += 500;
+    explosiones.push(new Explosion(jefe.x, jefe.y));
+    jefe = null;
     estado = "victoria";
   }
 }
@@ -90,6 +221,8 @@ function actualizarBalasJugador() {
       continue;
     }
 
+    let impactoAlien = false;
+
     for (let j = aliens.length - 1; j >= 0; j--) {
       let alien = aliens[j];
 
@@ -101,9 +234,26 @@ function actualizarBalasJugador() {
       ) {
         puntuacion += alien.getPuntos();
         explosiones.push(new Explosion(alien.x, alien.y));
+        aliensEliminados.push(alien);
         aliens.splice(j, 1);
         balas.splice(i, 1);
+        impactoAlien = true;
         break;
+      }
+    }
+
+    if (impactoAlien) continue;
+
+    if (estado === "jefe" && jefe && aliens.length === 0) {
+      if (
+        bala.x > jefe.x - jefe.ancho / 2 &&
+        bala.x < jefe.x + jefe.ancho / 2 &&
+        bala.y > jefe.y - jefe.alto / 2 &&
+        bala.y < jefe.y + jefe.alto / 2
+      ) {
+        jefe.vida -= 10;
+        explosiones.push(new Explosion(bala.x, bala.y));
+        balas.splice(i, 1);
       }
     }
   }
@@ -113,9 +263,19 @@ function actualizarBalasAlien() {
   for (let i = balasAlien.length - 1; i >= 0; i--) {
     let bala = balasAlien[i];
     bala.mostrar();
-    bala.moverAbajo();
 
-    if (bala.y > height) {
+    if (bala instanceof BalaJefe) {
+      bala.mover();
+    } else {
+      bala.moverAbajo();
+    }
+
+    if (
+      bala.y > height + 20 ||
+      bala.x < -20 ||
+      bala.x > width + 20 ||
+      bala.y < -20
+    ) {
       balasAlien.splice(i, 1);
       continue;
     }
@@ -207,9 +367,12 @@ function dibujarHUD() {
   for (let i = 0; i < vidas; i++) {
     fill(0, 255, 0);
     triangle(
-      width - 80 - i * 22, 35,
-      width - 90 - i * 22, 45,
-      width - 70 - i * 22, 45
+      width - 80 - i * 22,
+      35,
+      width - 90 - i * 22,
+      45,
+      width - 70 - i * 22,
+      45,
     );
   }
   pop();
@@ -267,7 +430,6 @@ function keyPressed() {
   }
 }
 
-
 class Nave {
   constructor() {
     this.x = width / 2;
@@ -280,9 +442,12 @@ class Nave {
   mostrar() {
     fill(0, 255, 0);
     triangle(
-      this.x, this.y - 20,
-      this.x - 25, this.y + 15,
-      this.x + 25, this.y + 15
+      this.x,
+      this.y - 20,
+      this.x - 25,
+      this.y + 15,
+      this.x + 25,
+      this.y + 15,
     );
 
     fill(0, 200, 255);
@@ -290,21 +455,30 @@ class Nave {
 
     fill(0, 180, 0);
     triangle(
-      this.x - 10, this.y + 5,
-      this.x - 30, this.y + 15,
-      this.x - 10, this.y + 15
+      this.x - 10,
+      this.y + 5,
+      this.x - 30,
+      this.y + 15,
+      this.x - 10,
+      this.y + 15,
     );
     triangle(
-      this.x + 10, this.y + 5,
-      this.x + 30, this.y + 15,
-      this.x + 10, this.y + 15
+      this.x + 10,
+      this.y + 5,
+      this.x + 30,
+      this.y + 15,
+      this.x + 10,
+      this.y + 15,
     );
 
     fill(255, 150, 0);
     triangle(
-      this.x - 7, this.y + 15,
-      this.x + 7, this.y + 15,
-      this.x, this.y + 30
+      this.x - 7,
+      this.y + 15,
+      this.x + 7,
+      this.y + 15,
+      this.x,
+      this.y + 30,
     );
   }
 
@@ -323,7 +497,6 @@ class Nave {
     }
   }
 }
-
 
 class Alien {
   constructor(x, y, fila) {
@@ -446,7 +619,6 @@ class Alien {
   }
 }
 
-
 class Bala {
   constructor(x, y) {
     this.x = x;
@@ -464,7 +636,6 @@ class Bala {
     this.y -= this.velocidad;
   }
 }
-
 
 class BalaAlien {
   constructor(x, y) {
@@ -484,6 +655,156 @@ class BalaAlien {
   }
 }
 
+class Jefe {
+  constructor() {
+    this.vidaMax = 120;
+    this.vida = this.vidaMax;
+    this.ancho = 110;
+    this.alto = 52;
+    this.x = width / 2;
+    this.y = 58;
+    this.velocidadX = 0.8;
+    this.velocidadY = 0.6;
+    this.direccionX = random() < 0.5 ? -1 : 1;
+    this.direccionY = 1;
+    this.tiempoDisparo = 0;
+    this.tiempoInicio = frameCount;
+    this.tiempoParaMover = floor(random(80, 150));
+    this.cambioDireccion = frameCount;
+  }
+
+  mostrar() {
+    push();
+    rectMode(CENTER);
+    noStroke();
+
+    fill(255, 60, 120);
+    rect(this.x, this.y, this.ancho, this.alto, 12);
+
+    fill(25, 0, 40);
+    rect(this.x, this.y + 8, this.ancho * 0.72, this.alto * 0.42, 9);
+
+    fill(130, 220, 255);
+    rect(this.x - 26, this.y - 8, 18, 14, 4);
+    rect(this.x + 26, this.y - 8, 18, 14, 4);
+
+    fill(255, 255, 255);
+    rect(this.x - 24, this.y - 5, 8, 8, 2);
+    rect(this.x + 24, this.y - 5, 8, 8, 2);
+
+    fill(255, 180, 0);
+    rect(this.x - 18, this.y + 10, 12, 10, 3);
+    rect(this.x + 18, this.y + 10, 12, 10, 3);
+    pop();
+  }
+
+  mover() {
+    if (frameCount - this.tiempoInicio < this.tiempoParaMover) {
+      this.x = width / 2;
+      this.y = 58;
+      return;
+    }
+
+    this.x += this.direccionX * this.velocidadX;
+    this.y += this.direccionY * this.velocidadY;
+
+    if (this.x < 80 || this.x > width - 80) {
+      this.direccionX *= -1;
+      this.x = constrain(this.x, 80, width - 80);
+    }
+
+    if (this.y < 55 || this.y > 145) {
+      this.direccionY *= -1;
+      this.y = constrain(this.y, 55, 145);
+    }
+
+    if (frameCount - this.cambioDireccion > 90) {
+      this.direccionX = random() < 0.5 ? -1 : 1;
+      this.direccionY = random() < 0.5 ? -1 : 1;
+      this.cambioDireccion = frameCount;
+    }
+  }
+
+  disparar() {
+    if (frameCount - this.tiempoDisparo < 55) return;
+
+    this.tiempoDisparo = frameCount;
+    let direccionX = nave.x - this.x;
+    let direccionY = nave.y - this.y;
+    let longitud = sqrt(direccionX * direccionX + direccionY * direccionY) || 1;
+
+    let vx = (direccionX / longitud) * 1.8;
+    let vy = (direccionY / longitud) * 1.8;
+
+    balasAlien.push(new BalaJefe(this.x, this.y + 10, vx, vy));
+  }
+}
+
+class BalaJefe {
+  constructor(x, y, vx, vy) {
+    this.x = x;
+    this.y = y;
+    this.vx = vx;
+    this.vy = vy;
+    this.velocidad = 3.2;
+    this.tamano = 7;
+  }
+
+  mostrar() {
+    fill(255, 150, 0);
+    ellipse(this.x, this.y, this.tamano, this.tamano);
+  }
+
+  mover() {
+    this.x += this.vx * this.velocidad;
+    this.y += this.vy * this.velocidad;
+  }
+}
+
+class AlienPequeno {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.r = 8;
+    this.tipo = 3;
+    this.frame = 0;
+  }
+
+  mostrar() {
+    push();
+    rectMode(CENTER);
+    noStroke();
+    this.frame = floor(frameCount / 15) % 2;
+    fill(0, 255, 150);
+
+    rect(this.x - 6, this.y - 3, 4, 4);
+    rect(this.x, this.y - 6, 4, 4);
+    rect(this.x + 6, this.y - 3, 4, 4);
+    rect(this.x - 8, this.y + 2, 4, 4);
+    rect(this.x + 8, this.y + 2, 4, 4);
+
+    if (this.frame === 0) {
+      rect(this.x - 6, this.y + 8, 4, 4);
+      rect(this.x + 6, this.y + 8, 4, 4);
+    } else {
+      rect(this.x - 8, this.y + 8, 4, 4);
+      rect(this.x + 8, this.y + 8, 4, 4);
+    }
+    pop();
+  }
+
+  mover(vel) {
+    this.x += vel;
+  }
+
+  bajar() {
+    this.y += 5;
+  }
+
+  getPuntos() {
+    return 50;
+  }
+}
 
 class Explosion {
   constructor(x, y) {
@@ -498,7 +819,7 @@ class Explosion {
         y: this.y,
         vx: random(-3, 3),
         vy: random(-3, 3),
-        tamano: random(3, 7)
+        tamano: random(3, 7),
       });
     }
   }
@@ -506,11 +827,7 @@ class Explosion {
   mostrar() {
     for (let particula of this.particulas) {
       fill(255, random(80, 180), 0);
-      ellipse(
-        particula.x,
-        particula.y,
-        particula.tamano
-      );
+      ellipse(particula.x, particula.y, particula.tamano);
     }
   }
 
